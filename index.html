@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Табло вылета</title>
+<style>
+  :root{
+    --bg:#07090d; --panel:#0e1218; --line:#1c232e;
+    --amber:#ffd166; --green:#5ee08a; --red:#ff5d5d; --orange:#ff9f43; --dim:#5b6575; --text:#e8ecf2;
+    --fs:19px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:
+      radial-gradient(1200px 600px at 80% -10%, #14233a55, transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, #2a143a44, transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+    min-height:100vh; padding:20px 16px 40px;
+  }
+  .wrap{max-width:1000px;margin:0 auto}
+  header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:16px}
+  h1{margin:0;font-size:clamp(20px,4vw,30px);letter-spacing:.14em;font-weight:700}
+  h1 small{display:block;font-size:12px;letter-spacing:.3em;color:var(--dim);font-weight:500;margin-top:4px}
+  .clock{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:clamp(26px,6vw,44px);color:var(--amber);letter-spacing:.06em;text-shadow:0 0 18px #ffd16655;text-align:right;line-height:1}
+  .clock small{display:block;font-size:11px;color:var(--dim);letter-spacing:.2em;margin-top:6px;text-shadow:none}
+  .tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+  .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;flex:1 1 auto;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .seg{display:flex;flex:0 0 auto;border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:3px;gap:3px}
+  .seg button{border:0;background:transparent;color:#9aa4b5;padding:7px 12px;border-radius:8px;font-size:13px;letter-spacing:.1em;cursor:pointer;font-weight:600}
+  .seg button.on{background:#1f2a3b;color:#fff;box-shadow:inset 0 0 0 1px #34425a}
+  .chip{flex:0 0 auto;border:1px solid var(--line);background:var(--panel);color:#aab3c2;border-radius:999px;padding:8px 14px;font-size:13px;cursor:pointer;transition:.15s}
+  .chip b{color:var(--amber);margin-right:6px;font-family:ui-monospace,Menlo,monospace}
+  .chip:hover{border-color:#34425a;color:#fff}
+  .chip.on{background:#1a2433;border-color:var(--amber);color:#fff;box-shadow:0 0 0 1px #ffd16633,0 0 20px #ffd16620}
+  input[type=search]{flex:0 1 220px;min-width:140px;background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:9px 12px;font-size:14px;outline:none}
+  input[type=search]:focus{border-color:var(--amber)}
+  .board{background:linear-gradient(#0c1016,#090c11);border:1px solid var(--line);border-radius:16px;padding:14px 14px 8px;box-shadow:0 30px 80px #000a,inset 0 1px 0 #ffffff08}
+  .labels,.row{display:grid;grid-template-columns:auto auto 1fr auto auto;column-gap:18px;align-items:center}
+  .labels{padding:0 0 10px;margin-bottom:6px;border-bottom:1px dashed var(--line);font-size:11px;letter-spacing:.22em;color:var(--dim)}
+  .row{padding:7px 6px;margin:0 -6px;border-bottom:1px solid #ffffff08;cursor:pointer;border-radius:8px;transition:background .15s}
+  .row:hover{background:#ffffff08}
+  .row:focus-visible{outline:1px solid var(--amber)}
+  .row:last-child{border-bottom:0}
+  .grp{display:flex;gap:2px}
+  .cell{
+    display:inline-block;width:.72em;height:1.28em;line-height:1.28em;text-align:center;
+    font:700 var(--fs)/1.28em ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:var(--fs);
+    background:linear-gradient(#262c36 0 50%,#1a1f27 50% 100%);color:var(--amber);
+    border-radius:3px;position:relative;box-shadow:inset 0 0 0 1px #00000066;
+    text-shadow:0 0 8px currentColor;backface-visibility:hidden;
+  }
+  .cell::after{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:#000c}
+  .st-ok{color:var(--amber)} .st-reg{color:#8ec5ff} .st-board{color:var(--green)} .st-late{color:var(--orange)} .st-bad{color:var(--red)} .st-gone{color:var(--dim)}
+  .grp.stt .cell{color:inherit}
+  .grp.fl .cell,.grp.gt .cell{color:#cfd6e2}
+  .board.arr .tm .cell,.board.arr .ds .cell{color:#9fd3ff}
+  .board.over .tm .cell,.board.over .ds .cell{color:#8ee6a8}
+  .empty{padding:36px 0;text-align:center;color:var(--dim);letter-spacing:.2em;font-size:13px}
+  footer{margin-top:16px;display:flex;flex-wrap:wrap;gap:8px 18px;justify-content:space-between;color:var(--dim);font-size:12px}
+  .badge{display:inline-flex;align-items:center;gap:6px}
+  .badge i{width:8px;height:8px;border-radius:50%;background:var(--orange);box-shadow:0 0 10px var(--orange)}
+  .badge.live i{background:var(--green);box-shadow:0 0 10px var(--green)}
+
+  /* карточка рейса */
+  .modal{position:fixed;inset:0;background:#000b;backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+  .modal[hidden]{display:none}
+  .card{width:100%;max-width:460px;max-height:90vh;overflow:auto;background:linear-gradient(#131a24,#0d1118);border:1px solid #2a3547;border-radius:18px;padding:20px;position:relative;box-shadow:0 30px 80px #000}
+  .x{position:absolute;top:8px;right:12px;border:0;background:transparent;color:#8d98aa;font-size:30px;cursor:pointer;line-height:1;padding:4px 8px}
+  .x:hover{color:#fff}
+  .head{display:flex;gap:14px;align-items:center;margin:0 28px 16px 0}
+  .logo{width:60px;height:60px;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;flex:0 0 auto}
+  .logo img{width:100%;height:100%;object-fit:contain;padding:6px}
+  .logo.noimg{color:#fff;font-weight:700;letter-spacing:.04em;font-size:17px}
+  .mfl{font:700 26px ui-monospace,Menlo,monospace;letter-spacing:.04em;color:var(--amber);word-break:break-all}
+  .mal{color:#aab3c2;font-size:14px;margin-top:2px}
+  .route{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px;border:1px solid var(--line);border-radius:12px;background:#0a0e14;margin-bottom:14px}
+  .route[hidden]{display:none}
+  .route .pt{min-width:0}
+  .route .pt:last-child{text-align:right}
+  .route b{display:block;font:700 28px ui-monospace,Menlo,monospace;letter-spacing:.06em}
+  .route span{font-size:12px;color:var(--dim)}
+  .route .ar{color:var(--dim);font-size:22px}
+  .mstat{display:inline-block;padding:5px 12px;border-radius:999px;font-size:12px;letter-spacing:.14em;font-weight:700;border:1px solid currentColor;margin-bottom:16px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px;margin:0}
+  .grid dt{font-size:11px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase;margin-bottom:3px}
+  .grid dd{margin:0;font-size:15px}
+  .mfoot{margin-top:18px;font-size:11px;color:var(--dim)}
+
+  @media (min-width:760px){:root{--fs:26px}}
+  @media (max-width:759px){
+    .labels{display:none}
+    .row{grid-template-columns:auto 1fr auto;grid-template-areas:"time dest gate" "fl st st";row-gap:5px;padding:10px 6px;column-gap:12px}
+    .row .tm{grid-area:time}.row .ds{grid-area:dest}.row .gt{grid-area:gate}.row .fl{grid-area:fl}.row .stt{grid-area:st}
+    .row .fl .cell,.row .stt .cell{font-size:calc(var(--fs)*.68)}
+    .row .stt{justify-self:end}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span id="title">ВЫЛЕТ</span> <small id="apName">DEPARTURES</small></h1>
+    <div class="clock"><span id="clock">--:--:--</span><small>МОСКОВСКОЕ ВРЕМЯ</small></div>
+  </header>
+
+  <div class="tools">
+    <div class="seg"><button data-mode="dep">ВЫЛЕТ</button><button data-mode="arr">ПРИЛЁТ</button><button data-mode="over">ПРОЛЁТ</button></div>
+    <div class="chips" id="chips"></div>
+    <input type="search" id="q" placeholder="Рейс или город…" autocomplete="off">
+  </div>
+
+  <div class="board" id="board">
+    <div class="labels"><div id="lbTm">ВРЕМЯ</div><div id="lbFl">РЕЙС</div><div id="lbDest">НАПРАВЛЕНИЕ</div><div id="lbGate">ВЫХОД</div><div id="lbSt">СТАТУС</div></div>
+    <div id="rows"></div>
+    <div class="empty" id="empty" hidden>РЕЙСОВ НЕ НАЙДЕНО</div>
+  </div>
+
+  <footer>
+    <span class="badge" id="badge"><i></i><span id="badgeText">Демо-данные</span></span>
+    <span>Нажмите на рейс, чтобы открыть подробности</span>
+  </footer>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="card" role="dialog" aria-modal="true" aria-labelledby="mFl">
+    <button class="x" id="mx" aria-label="Закрыть">×</button>
+    <div class="head"><div class="logo" id="mLogo"></div><div><div class="mfl" id="mFl"></div><div class="mal" id="mAl"></div></div></div>
+    <div class="route" id="mRoute"></div>
+    <div class="mstat" id="mStat"></div>
+    <dl class="grid" id="mGrid"></dl>
+    <div class="mfoot" id="mFoot"></div>
+  </div>
+</div>
+
+<script>
+const TZ = 'Europe/Moscow';
+const ROWS = 10;
+const W = {tm:5, fl:7, ds:13, gt:4, st:13};
+const ALPHA = 'АБВГДЕЖЗИКЛМНОПРСТУФХЦЧШЭЮЯABCDEFGHJKLMNPRSTUVWXYZ0123456789';
+
+const AIRPORTS = {
+  SVO:{name:'ШЕРЕМЕТЬЕВО', city:'МОСКВА', gates:'ABCDF', lat:55.9726, lon:37.4146},
+  DME:{name:'ДОМОДЕДОВО',  city:'МОСКВА', gates:'ABC',   lat:55.4088, lon:37.9063},
+  VKO:{name:'ВНУКОВО',     city:'МОСКВА', gates:'ABD',   lat:55.5915, lon:37.2615},
+  LED:{name:'ПУЛКОВО',     city:'ПЕТЕРБУРГ', gates:'AB', lat:59.8003, lon:30.2625},
+  KZN:{name:'КАЗАНЬ',      city:'КАЗАНЬ', gates:'AB',    lat:55.6062, lon:49.2787},
+  AER:{name:'СОЧИ',        city:'СОЧИ', gates:'ABC',     lat:43.4499, lon:39.9566},
+  KGD:{name:'ХРАБРОВО',    city:'КАЛИНИНГРАД', gates:'A', lat:54.8900, lon:20.5926},
+  SVX:{name:'КОЛЬЦОВО',    city:'ЕКАТЕРИНБУРГ', gates:'AB', lat:56.7431, lon:60.8027},
+};
+// [название для табло, IATA города]
+const DESTS = [['МОСКВА','MOW'],['ПЕТЕРБУРГ','LED'],['СОЧИ','AER'],['КАЗАНЬ','KZN'],['КАЛИНИНГРАД','KGD'],['ЕКАТЕРИНБУРГ','SVX'],['НОВОСИБИРСК','OVB'],['КРАСНОЯРСК','KJA'],['ИРКУТСК','IKT'],['ВЛАДИВОСТОК','VVO'],['ХАБАРОВСК','KHV'],['УФА','UFA'],['САМАРА','KUF'],['КРАСНОДАР','KRR'],['МИН. ВОДЫ','MRV'],['МУРМАНСК','MMK'],['АРХАНГЕЛЬСК','ARH'],['ТЮМЕНЬ','TJM'],['СТАМБУЛ','IST'],['ДУБАЙ','DXB'],['МИНСК','MSQ'],['ЕРЕВАН','EVN'],['ТБИЛИСИ','TBS'],['БАКУ','GYD'],['АЛМАТЫ','ALA'],['ТАШКЕНТ','TAS']];
+const AIRLINES = ['SU','S7','DP','U6','FV','N4','UT'];
+const AIRLINE = {SU:'Аэрофлот',S7:'S7 Airlines',DP:'Победа',U6:'Уральские авиалинии',FV:'Россия',N4:'Nordwind',UT:'ЮТэйр','5N':'Smartavia',A4:'Азимут',WZ:'Red Wings',YC:'Ямал',TK:'Turkish Airlines',EK:'Emirates',B2:'Belavia',QR:'Qatar Airways',EY:'Etihad',FZ:'flydubai',LH:'Lufthansa',BA:'British Airways',AF:'Air France',KL:'KLM',FR:'Ryanair',UA:'United',AA:'American Airlines',DL:'Delta'};
+// ICAO-префикс позывного -> IATA авиакомпании
+const ICAO_AL = {AFL:'SU',SBI:'S7',PBD:'DP',SDM:'FV',SVR:'U6',NWS:'N4',UTA:'UT',AZO:'A4',RWZ:'WZ',THY:'TK',UAE:'EK',BRU:'B2',QTR:'QR',ETD:'EY',FDB:'FZ',DLH:'LH',BAW:'BA',AFR:'AF',KLM:'KL',RYR:'FR',UAL:'UA',AAL:'AA',DAL:'DL'};
+const COUNTRY = {'Russian Federation':'Россия','Turkey':'Турция','Belarus':'Беларусь','Kazakhstan':'Казахстан','Uzbekistan':'Узбекистан','Armenia':'Армения','Azerbaijan':'Азербайджан','Georgia':'Грузия','United Arab Emirates':'ОАЭ','Qatar':'Катар','China':'Китай','India':'Индия','Germany':'Германия','United States':'США','United Kingdom':'Великобритания','France':'Франция','Finland':'Финляндия','Poland':'Польша','Ukraine':'Украина','Egypt':'Египет','Serbia':'Сербия'};
+const AIRCRAFT = ['Airbus A320','Airbus A321','Boeing 737-800','Sukhoi Superjet 100','Airbus A330-300','Boeing 777-300ER','Airbus A350-900','Airbus A319'];
+
+// ---------- helpers ----------
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function hash(s){let h=2166136261;for(const c of s){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0}
+function mskNow(){
+  const p = new Intl.DateTimeFormat('ru-RU',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(new Date());
+  const o = Object.fromEntries(p.map(x=>[x.type,x.value]));
+  return {day:`${o.year}-${o.month}-${o.day}`, h:+o.hour, m:+o.minute, s:+o.second, min:+o.hour*60+ +o.minute};
+}
+const fmt = m => { m=((m%1440)+1440)%1440; return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); };
+const hmFmt = new Intl.DateTimeFormat('ru-RU',{timeZone:TZ,hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+const hmsFmt = new Intl.DateTimeFormat('ru-RU',{timeZone:TZ,hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'});
+const compass = deg => ['С','СВ','В','ЮВ','Ю','ЮЗ','З','СЗ'][Math.round(((deg%360)+360)%360/45)%8];
+const cap = s => String(s||'').toLowerCase().replace(/(^|[\s.-])(\p{L})/gu,(m,a,b)=>a+b.toUpperCase());
+function haversine(la1,lo1,la2,lo2){
+  const R=6371, r=Math.PI/180, dLa=(la2-la1)*r, dLo=(lo2-lo1)*r;
+  const a=Math.sin(dLa/2)**2+Math.cos(la1*r)*Math.cos(la2*r)*Math.sin(dLo/2)**2;
+  return 2*R*Math.asin(Math.sqrt(a));
+}
+
+// ---------- статусы ----------
+// d — минут до вылета/прилёта (с учётом задержки), done — рейс уже вылетел/приземлился
+function labelFor(mode, d, delay, cancelled, done){
+  if(cancelled) return d < -30 ? null : ['ОТМЕНЁН','st-bad'];
+  if(d < -25) return null;
+  if(mode === 'arr'){
+    if(done || d <= 0) return ['ПРИЗЕМЛИЛСЯ','st-board'];
+    if(d <= 15) return ['НА ПОДХОДЕ','st-reg'];
+    if(delay >= 15) return ['ЗАДЕРЖАН','st-late'];
+    if(d <= 120) return ['В ПУТИ','st-ok'];
+    return ['ПО РАСПИСАНИЮ','st-ok'];
+  }
+  if(done || d <= 0) return ['ВЫЛЕТЕЛ','st-gone'];
+  if(d <= 15) return ['ВЫХОД ЗАКРЫТ','st-late'];
+  if(d <= 40) return ['ПОСАДКА','st-board'];
+  if(d <= 150) return ['РЕГИСТРАЦИЯ','st-reg'];
+  return delay >= 15 ? ['ЗАДЕРЖАН','st-late'] : ['ПО РАСПИСАНИЮ','st-ok'];
+}
+const alOf = (al, flight) => al || String(flight||'').split(' ')[0];
+
+// ---------- демо-расписание вылетов и прилётов ----------
+function generate(code, day, mode){
+  const ap = AIRPORTS[code], rnd = mulberry32(hash(code+day+mode));
+  const dests = DESTS.filter(d=>d[0]!==ap.city), list = [];
+  const N = 46;
+  for(let i=0;i<N;i++){
+    const base = 5*60 + Math.round((i*(18.5*60/N) + rnd()*10)/5)*5;
+    const dp = dests[Math.floor(rnd()*dests.length)];
+    const al = AIRLINES[Math.floor(rnd()*AIRLINES.length)];
+    const num = String(100+Math.floor(rnd()*8900));
+    const gate = mode==='arr' ? String(1+Math.floor(rnd()*9)) : ap.gates[Math.floor(rnd()*ap.gates.length)] + (1+Math.floor(rnd()*24));
+    const late = rnd()<0.13 ? 15*(1+Math.floor(rnd()*6)) : 0;
+    const cancelled = rnd()<0.03;
+    const ac = AIRCRAFT[Math.floor(rnd()*AIRCRAFT.length)];
+    list.push({sched:base, delay:late, cancelled, flight:al+' '+num, al, dest:dp[0], iata:dp[1], gate, ac});
+  }
+  return list.sort((a,b)=>a.sched-b.sched);
+}
+function demoRows(code, mode){
+  const now = mskNow();
+  return generate(code, now.day, mode).map(f=>{
+    const d = f.sched + f.delay - now.min;
+    const st = labelFor(mode, d, f.delay, f.cancelled, false); if(!st) return null;
+    const gate = f.cancelled ? '' : (mode === 'arr' && d > 45 ? '' : f.gate); // ленту багажа показываем ближе к прилёту
+    return {time:fmt(f.sched+f.delay), flight:f.flight, dest:f.dest, gate, status:st[0], cls:st[1],
+      d:{type:'flight', live:false, mode, flight:f.flight, al:f.al, city:f.dest, iata:f.iata, sched:fmt(f.sched), eff:fmt(f.sched+f.delay), delay:f.delay, gate, term:'', ac:f.ac, dur:0, status:st[0], cls:st[1]}};
+  }).filter(Boolean);
+}
+
+// ---------- реальные вылеты и прилёты: data/flights.json ----------
+let REAL = null;
+// Строка: {ts (эпоха, с, с учётом задержки), delay (мин), flight, al, dest, iata, gate, term, ac, dur, state: scheduled|departed|landed|cancelled}
+// Вылеты лежат в REAL.airports[код], прилёты в REAL.arrivals[код]
+function realSrc(code, mode){
+  const src = REAL && (mode === 'arr' ? REAL.arrivals : REAL.airports);
+  return (src && src[code]) || null;
+}
+function realRows(code, mode){
+  const arr = realSrc(code, mode);
+  if(!arr) return null;
+  const nowMs = Date.now();
+  return arr.map(r=>{
+    const d = (r.ts*1000 - nowMs)/60000;
+    const st = labelFor(mode, d, r.delay||0, r.state==='cancelled', r.state==='departed' || r.state==='landed');
+    if(!st) return null;
+    const eff = hmFmt.format(new Date(r.ts*1000)), sched = hmFmt.format(new Date((r.ts-(r.delay||0)*60)*1000));
+    const gate = r.state==='cancelled' ? '' : (r.gate||'');
+    const dest = String(r.dest||'').toUpperCase();
+    return {ts:r.ts, time:eff, flight:r.flight||'', dest, gate, status:st[0], cls:st[1],
+      d:{type:'flight', live:true, mode, flight:r.flight||'', al:alOf(r.al, r.flight), city:dest, iata:r.iata||'', sched, eff, delay:r.delay||0, gate, term:r.term||'', ac:r.ac||'', dur:r.dur||0, status:st[0], cls:st[1]}};
+  }).filter(Boolean).sort((a,b)=>a.ts-b.ts);
+}
+
+// ---------- пролёты: борта в небе над аэропортом ----------
+// o: {cs, icao24, country, alt (м), spd (м/с), hdg (°), vr (м/с), dist (км), squawk}
+function overRow(o){
+  const fl = 'FL' + String(Math.max(0, Math.round(o.alt*3.28084/100))).padStart(3,'0');
+  const kmh = Math.round(o.spd*3.6);
+  const st = o.vr > 2 ? ['НАБОР ВЫСОТЫ','st-board'] : o.vr < -2 ? ['СНИЖЕНИЕ','st-reg'] : ['ГОРИЗОНТ','st-ok'];
+  const m = /^([A-Z]{3})\d/.exec(o.cs);
+  const pre = m ? m[1] : '';
+  return {time:fl, flight:o.cs.slice(0,7), dest:`${compass(o.hdg)} ${kmh} КМ/Ч`, gate:String(Math.round(o.dist)), status:st[0], cls:st[1],
+    d:{type:'over', o, fl, kmh, pre, al:ICAO_AL[pre]||'', status:st[0], cls:st[1]}};
+}
+function genOver(code){
+  const rnd = mulberry32(hash(code+'over'+mskNow().day));
+  const t = Date.now()/1000, R = 150, list = [];
+  const pres = ['AFL','SBI','PBD','SDM','SVR','NWS','UTA','THY','UAE','BRU'];
+  const wrap = p => (((p+R)%(2*R))+2*R)%(2*R)-R;
+  for(let i=0;i<14;i++){
+    const hdg = rnd()*360, spd = 190+rnd()*80;
+    const alt = [3000,6000,8800,10400,11300,11900][Math.floor(rnd()*6)]*(0.9+rnd()*0.2);
+    const vr = rnd()<0.6 ? (rnd()-.5)*0.6 : (rnd()-.5)*20;
+    const cs = pres[Math.floor(rnd()*pres.length)] + (100+Math.floor(rnd()*8900));
+    const x0 = (rnd()*2-1)*R, y0 = (rnd()*2-1)*R;
+    const x = wrap(x0 + Math.sin(hdg*Math.PI/180)*spd/1000*t), y = wrap(y0 + Math.cos(hdg*Math.PI/180)*spd/1000*t);
+    const dist = Math.hypot(x,y);
+    if(dist <= R) list.push({cs, icao24:(0x100000+Math.floor(rnd()*0xEFFFFF)).toString(16), country:'Russian Federation', alt, spd, hdg, vr, dist, squawk:''});
+  }
+  return list.sort((a,b)=>a.dist-b.dist);
+}
+async function loadOver(code){
+  const a = AIRPORTS[code], dLat = 1.4, dLon = Math.min(5, 1.4/Math.cos(a.lat*Math.PI/180));
+  const u = `https://opensky-network.org/api/states/all?lamin=${(a.lat-dLat).toFixed(3)}&lomin=${(a.lon-dLon).toFixed(3)}&lamax=${(a.lat+dLat).toFixed(3)}&lomax=${(a.lon+dLon).toFixed(3)}`;
+  const ctl = new AbortController(), to = setTimeout(()=>ctl.abort(), 12000);
+  try{
+    const res = await fetch(u, {signal:ctl.signal});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const j = await res.json();
+    return (j.states||[]).map(s=>{
+      if(s[8] || s[5]==null || s[6]==null) return null;
+      const alt = s[7] ?? s[13]; if(alt==null) return null;
+      const dist = haversine(a.lat, a.lon, s[6], s[5]);
+      if(dist > 150) return null;
+      return {cs:(s[1]||'').trim().toUpperCase() || String(s[0]).toUpperCase(), icao24:s[0], country:s[2]||'', alt, spd:s[9]||0, hdg:s[10]||0, vr:s[11]||0, dist, squawk:s[14]||''};
+    }).filter(Boolean).sort((a,b)=>a.dist-b.dist);
+  } finally { clearTimeout(to); }
+}
+const OVER = {}; // код аэропорта -> {t, rows, busy, fail}
+function ensureOver(code){
+  const o = OVER[code] || (OVER[code] = {t:0, rows:null, busy:false, fail:0});
+  if(o.busy || (typeof document !== 'undefined' && document.hidden)) return;
+  const age = Date.now() - o.t;
+  if(age < 45000) return;
+  if(o.fail >= 3 && age < 300000) return; // после трёх неудач ждём 5 минут
+  o.busy = true;
+  loadOver(code).then(rows=>{ o.rows = rows; o.fail = 0; })
+    .catch(()=>{ o.fail++; })
+    .finally(()=>{ o.t = Date.now(); o.busy = false; if(mode === 'over' && current === code) refresh(false); });
+}
+
+// ---------- сборка строк табло ----------
+let meta = {live:false, empty:'РЕЙСОВ НЕ НАЙДЕНО', note:'', updated:0};
+function buildRows(code, mode){
+  meta = {live:false, empty:'РЕЙСОВ НЕ НАЙДЕНО', note:'', updated:0};
+  if(mode === 'over'){
+    meta.empty = 'БОРТОВ НЕ НАЙДЕНО';
+    ensureOver(code);
+    const o = OVER[code];
+    if(o.rows){ meta.live = true; meta.updated = o.t; return o.rows.map(overRow); }
+    if(o.busy && o.t === 0){ meta.empty = 'ЗАГРУЗКА…'; return []; }
+    meta.note = o.fail ? 'OpenSky недоступен' : '';
+    return genOver(code).map(overRow);
+  }
+  const real = realRows(code, mode);
+  if(real){ meta.live = true; meta.updated = REAL.updated ? new Date(REAL.updated).getTime() : 0; return real; }
+  return demoRows(code, mode);
+}
+// ---------- UI ----------
+</script>
+<script>
+// ---------- split-flap ----------
+function mkGroup(len, cls){
+  const g = document.createElement('div'); g.className = 'grp '+cls; g.cells = [];
+  for(let i=0;i<len;i++){ const c=document.createElement('span'); c.className='cell'; c.textContent=' '; g.cells.push(c); g.appendChild(c); }
+  return g;
+}
+function flip(c){ c.animate([{transform:'perspective(120px) rotateX(-80deg)',opacity:.4},{transform:'perspective(120px) rotateX(0)',opacity:1}],{duration:110,easing:'ease-out'}); }
+function setCell(c, ch, delay){
+  if(c.textContent === ch && !c._t) return;
+  clearTimeout(c._t);
+  let k = 0; const steps = 2 + Math.floor(Math.random()*5);
+  const step = () => {
+    if(k++ < steps){ c.textContent = ALPHA[Math.floor(Math.random()*ALPHA.length)]; flip(c); c._t = setTimeout(step, 55); }
+    else { c.textContent = ch; flip(c); c._t = null; }
+  };
+  c._t = setTimeout(step, delay);
+}
+function setGroup(g, text, delay=0){
+  const t = String(text||'').toUpperCase().padEnd(g.cells.length,' ').slice(0,g.cells.length);
+  g.cells.forEach((c,i)=>setCell(c, t[i], delay + i*18 + Math.random()*120));
+}
+
+// ---------- карточка рейса ----------
+const $ = id => document.getElementById(id);
+function h(tag, cls, text){ const e = document.createElement(tag); if(cls) e.className = cls; if(text != null) e.textContent = text; return e; }
+function badgeColor(code){ return `hsl(${hash(code)%360} 50% 36%)`; }
+// Логотип авиакомпании: пробуем два открытых CDN, при неудаче показываем цветной значок с кодом
+function setLogo(code, fallbackText){
+  const box = $('mLogo'); box.replaceChildren(); box.className = 'logo'; box.style.background = '';
+  const showBadge = txt => { box.replaceChildren(); box.className = 'logo noimg'; box.style.background = badgeColor(txt || '?'); box.textContent = txt || '✈'; };
+  if(!/^[A-Z0-9]{2}$/.test(code||'')){ showBadge(fallbackText); return; }
+  const srcs = [`https://pics.avs.io/160/160/${code}.png`, `https://images.kiwi.com/airlines/64/${code}.png`];
+  let i = 0; const img = new Image(); img.alt = '';
+  img.onerror = () => { if(++i < srcs.length) img.src = srcs[i]; else showBadge(code); };
+  img.src = srcs[0]; box.appendChild(img);
+}
+function addRow(dl, label, value){
+  if(value === '' || value == null || value === false) return;
+  const w = h('div'); w.append(h('dt', null, label), h('dd', null, String(value))); dl.appendChild(w);
+}
+function pt(code, city){ const d = h('div','pt'); d.append(h('b', null, code || '—'), h('span', null, cap(city))); return d; }
+function openModal(row){
+  const d = row.d; if(!d) return;
+  const grid = $('mGrid'); grid.replaceChildren();
+  $('mStat').textContent = d.status; $('mStat').className = 'mstat ' + d.cls;
+  if(d.type === 'over'){
+    const o = d.o;
+    $('mFl').textContent = o.cs;
+    $('mAl').textContent = d.al ? (AIRLINE[d.al] || d.al) : 'Авиакомпания не определена';
+    setLogo(d.al, d.pre || '✈');
+    $('mRoute').hidden = true;
+    addRow(grid, 'Высота', `${Math.round(o.alt)} м · ${d.fl}`);
+    addRow(grid, 'Скорость', `${d.kmh} км/ч`);
+    addRow(grid, 'Курс', `${Math.round(o.hdg)}° (${compass(o.hdg)})`);
+    addRow(grid, 'Верт. скорость', `${o.vr>0?'+':''}${o.vr.toFixed(1)} м/с`);
+    addRow(grid, 'До аэропорта', `${Math.round(o.dist)} км`);
+    addRow(grid, 'Страна регистрации', COUNTRY[o.country] || o.country);
+    addRow(grid, 'ICAO24', String(o.icao24).toUpperCase());
+    addRow(grid, 'Squawk', o.squawk);
+    $('mFoot').textContent = meta.live ? 'Данные OpenSky Network' : 'Демо-данные: сведения о борте сгенерированы';
+  } else {
+    const home = AIRPORTS[current], arr = d.mode === 'arr';
+    $('mFl').textContent = d.flight;
+    $('mAl').textContent = AIRLINE[d.al] || d.al || '';
+    setLogo(d.al, d.al);
+    const route = $('mRoute'); route.hidden = false; route.replaceChildren();
+    const a = pt(arr ? d.iata : current, arr ? d.city : home.city), b = pt(arr ? current : d.iata, arr ? home.city : d.city);
+    route.append(a, h('div','ar','✈'), b);
+    addRow(grid, arr ? 'Прилёт по расписанию' : 'Вылет по расписанию', d.sched);
+    if(d.delay > 0){ addRow(grid, 'Ожидается', d.eff); addRow(grid, 'Задержка', `${d.delay} мин`); }
+    addRow(grid, arr ? 'Лента багажа' : 'Выход', d.gate);
+    addRow(grid, 'Терминал', d.term);
+    addRow(grid, 'Воздушное судно', d.ac);
+    addRow(grid, 'Время в пути', d.dur ? `${Math.floor(d.dur/60)} ч ${d.dur%60} мин` : '');
+    $('mFoot').textContent = d.live ? 'Данные AirLabs' + (REAL && REAL.updated ? ' · обновлено ' + hmFmt.format(new Date(REAL.updated)) + ' МСК' : '') : 'Демо-данные: сведения о рейсе сгенерированы';
+  }
+  $('modal').hidden = false; document.body.style.overflow = 'hidden'; $('mx').focus();
+}
+function closeModal(){ $('modal').hidden = true; document.body.style.overflow = ''; }
+$('mx').onclick = closeModal;
+$('modal').addEventListener('click', e => { if(e.target === $('modal')) closeModal(); });
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && !$('modal').hidden) closeModal(); });
+
+// ---------- табло ----------
+const rowsEl = $('rows');
+const rows = [];
+for(let i=0;i<ROWS;i++){
+  const el = document.createElement('div'); el.className = 'row'; el.tabIndex = 0; el.setAttribute('role','button');
+  const r = {el, data:null, tm:mkGroup(W.tm,'tm'), fl:mkGroup(W.fl,'fl'), ds:mkGroup(W.ds,'ds'), gt:mkGroup(W.gt,'gt'), stt:mkGroup(W.st,'stt')};
+  [r.tm,r.fl,r.ds,r.gt,r.stt].forEach(g=>el.appendChild(g));
+  el.addEventListener('click', ()=>{ if(r.data) openModal(r.data); });
+  el.addEventListener('keydown', e => { if((e.key === 'Enter' || e.key === ' ') && r.data){ e.preventDefault(); openModal(r.data); } });
+  rowsEl.appendChild(el); rows.push(r);
+}
+let current = localStorage.getItem('airport') || 'SVO';
+if(!AIRPORTS[current]) current = 'SVO';
+let mode = localStorage.getItem('mode');
+if(!['dep','arr','over'].includes(mode)) mode = 'dep';
+document.querySelectorAll('.seg button').forEach(b=>{
+  b.onclick = ()=>{ mode = b.dataset.mode; localStorage.setItem('mode', mode); refresh(true); };
+});
+const chips = $('chips');
+Object.entries(AIRPORTS).forEach(([code,a])=>{
+  const b = document.createElement('button'); b.className='chip'; b.dataset.code=code;
+  b.innerHTML = `<b>${code}</b>${a.name[0]+a.name.slice(1).toLowerCase()}`;
+  b.onclick = ()=>{ current=code; localStorage.setItem('airport',code); refresh(true); };
+  chips.appendChild(b);
+});
+const q = $('q'); q.addEventListener('input', ()=>refresh(true));
+
+const LABELS = {
+  dep:{title:'ВЫЛЕТ', sub:'DEPARTURES', tm:'ВРЕМЯ', fl:'РЕЙС', ds:'НАПРАВЛЕНИЕ', gt:'ВЫХОД', st:'СТАТУС', ph:'Рейс или город…', tab:'Табло вылета'},
+  arr:{title:'ПРИЛЁТ', sub:'ARRIVALS', tm:'ВРЕМЯ', fl:'РЕЙС', ds:'ОТКУДА', gt:'ЛЕНТА', st:'СТАТУС', ph:'Рейс или город…', tab:'Табло прилёта'},
+  over:{title:'ПРОЛЁТ', sub:'OVERHEAD', tm:'ВЫСОТА', fl:'ПОЗЫВНОЙ', ds:'КУРС И СКОРОСТЬ', gt:'КМ', st:'СОСТОЯНИЕ', ph:'Позывной…', tab:'Борта над аэропортом'},
+};
+function refresh(force){
+  const L = LABELS[mode];
+  document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on', c.dataset.code===current));
+  document.querySelectorAll('.seg button').forEach(b=>b.classList.toggle('on', b.dataset.mode===mode));
+  $('board').classList.toggle('arr', mode==='arr');
+  $('board').classList.toggle('over', mode==='over');
+  $('title').textContent = L.title;
+  $('lbTm').textContent = L.tm; $('lbFl').textContent = L.fl; $('lbDest').textContent = L.ds; $('lbGate').textContent = L.gt; $('lbSt').textContent = L.st;
+  q.placeholder = L.ph;
+  document.title = `${L.tab} · ${current}`;
+  $('apName').textContent = `${L.sub} · ${AIRPORTS[current].name} · ${current}`;
+
+  const term = q.value.trim().toUpperCase();
+  let list = buildRows(current, mode);
+  if(term) list = list.filter(r => r.dest.includes(term) || r.flight.replace(' ','').includes(term.replace(' ','')));
+  list = list.slice(0, ROWS);
+  $('empty').hidden = list.length > 0; $('empty').textContent = meta.empty;
+  rows.forEach((r,i)=>{
+    const d = list[i], base = force ? i*70 : 0;
+    r.data = d || null;
+    r.el.style.display = d ? '' : 'none';
+    setGroup(r.tm, d?d.time:'', base); setGroup(r.fl, d?d.flight:'', base);
+    setGroup(r.ds, d?d.dest:'', base);  setGroup(r.gt, d?d.gate:'', base);
+    setGroup(r.stt, d?d.status:'', base);
+    r.stt.className = 'grp stt ' + (d?d.cls:'');
+  });
+
+  let txt;
+  if(mode === 'over'){
+    txt = meta.live ? 'Реальные данные · OpenSky · обновлено ' + hmsFmt.format(new Date(meta.updated)) + ' МСК' : 'Демо-данные · борта сгенерированы' + (meta.note ? ' · ' + meta.note : '');
+  } else if(meta.live){
+    txt = 'Реальные данные';
+    if(meta.updated){
+      txt += ' · обновлено ' + hmFmt.format(new Date(meta.updated)) + ' МСК';
+      if(Date.now() - meta.updated > 3*3600*1000) txt += ' · данные устарели';
+    }
+  } else txt = 'Демо-данные · расписание сгенерировано';
+  $('badge').classList.toggle('live', meta.live);
+  $('badgeText').textContent = txt;
+}
+
+function tick(){ const n=mskNow(); $('clock').textContent = [n.h,n.m,n.s].map(x=>String(x).padStart(2,'0')).join(':'); }
+setInterval(tick, 1000); tick();
+setInterval(()=>refresh(false), 20000);
+
+fetch('data/flights.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(j=>{ if(j){REAL=j; refresh(false);} }).catch(()=>{});
+refresh(true);
+</script>
+</body>
+</html>
